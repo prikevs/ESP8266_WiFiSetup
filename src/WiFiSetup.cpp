@@ -29,6 +29,8 @@ WiFiSetup::WiFiSetup(int ledPin, char *ssid, char *passwd) {
     strncpy(this->hotspotPasswd, passwd, WIFISETUP_BUFFER_SIZE-1);
     this->hasPasswd = true;
   }
+
+  pinMode(ledPin, OUTPUT);
 }
 
 void WiFiSetup::reset() {
@@ -65,7 +67,7 @@ int WiFiSetup::prepareServing() {
   } else {
     WiFi.softAP(this->hotspotSSID);
   }
-  // this->server.on("/", std::bind(&WiFiSetup::handleRoot, this));
+
   this->server.on("/", HTTP_GET, [&](){
     server.sendHeader("Connection", "close");
     server.send(200, "text/html", serverIndex);
@@ -95,9 +97,14 @@ int WiFiSetup::tryConnectingWiFi() {
 
   WiFi.begin(ssid, passwd);
   while(WiFi.status() != WL_CONNECTED) {
-    delay(500);
+    delay(250);
+    turnLEDOn();
+    delay(250);
+    turnLEDOff();
     DPRINTS(".");
   }
+
+  turnLEDOn();
 
   DPRINTLN("");
   DPRINTLN("WiFI connected");
@@ -111,6 +118,14 @@ int WiFiSetup::serveWeb() {
   this->server.handleClient();
 
   return 0;
+}
+
+void WiFiSetup::turnLEDOn() {
+  digitalWrite(LED_BUILTIN, LOW);
+}
+
+void WiFiSetup::turnLEDOff() {
+  digitalWrite(LED_BUILTIN, HIGH);
 }
 
 void WiFiSetup::writeWiFiData(const char *ssid, const char *passwd) {

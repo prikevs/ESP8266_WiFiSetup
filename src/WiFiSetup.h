@@ -43,10 +43,13 @@ class WiFiSetup {
   int ledPin;
   ESP8266WebServer server;
 
- public:
-  WiFiSetup(int ledPin, char *ssid = nullptr, char *passwd = nullptr);
   void writeWiFiData(const char *ssid, const char *passwd);
   void readWiFiData(char *ssid, char *passwd);
+  void turnLEDOn();
+  void turnLEDOff();
+
+ public:
+  WiFiSetup(int ledPin, char *ssid = nullptr, char *passwd = nullptr);
 
   void reset();
   bool needSetup();
