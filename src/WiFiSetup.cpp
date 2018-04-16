@@ -1,6 +1,5 @@
 #include "WiFiSetup.h"
 
-#define NOMINMAX
 #if defined NOMINMAX
 
 #if defined min
@@ -14,6 +13,12 @@ inline const T& __attribute__((always_inline)) min(const T& a, const T& b) {
 #endif
 
 const char *serverIndex = "<form action=\"/update\" method=\"post\">SSID:<input type=\"text\" name=\"ssid\"><br>password:<input type=\"text\" name=\"passwd\"><br><input type=\"submit\" value=\"Submit\"></form>";
+
+char* ip2CharArray(IPAddress ip) {
+  static char a[16];
+  sprintf(a, "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
+  return a;
+}
 
 
 // WiFiSetup
@@ -61,35 +66,35 @@ bool WiFiSetup::needRestart() {
 }
 
 int WiFiSetup::prepareServing() {
-  this->server = ESP8266WebServer(80);
+  this->server = std::unique_ptr<ESP8266WebServer>(new ESP8266WebServer(80));
   if (this->hasPasswd) {
     WiFi.softAP(this->hotspotSSID, this->hotspotPasswd);
   } else {
     WiFi.softAP(this->hotspotSSID);
   }
 
-  this->server.on("/", HTTP_GET, [&](){
-    server.sendHeader("Connection", "close");
-    server.send(200, "text/html", serverIndex);
+  this->server->on("/", HTTP_GET, [&](){
+    server->sendHeader("Connection", "close");
+    server->send(200, "text/html", serverIndex);
   });
 
-  this->server.on("/update", HTTP_POST, [&](){
-    String ssid = server.arg("ssid");
-    String passwd = server.arg("passwd");
+  this->server->on("/update", HTTP_POST, [&](){
+    String ssid = server->arg("ssid");
+    String passwd = server->arg("passwd");
     this->writeWiFiData(ssid.c_str(), passwd.c_str());
     this->needRestartCached = true;
 
-    server.send(200, "text/html", "Data saved, ready to restart.");
+    server->send(200, "text/html", "Data saved, ready to restart.");
   });
 
-  this->server.begin();
+  this->server->begin();
   DPRINTLN("Start serving...");
   return 0;
 }
 
 int WiFiSetup::tryConnectingWiFi() {
-  char ssid[WIFISETUP_BUFFER_SIZE] = { 0 };
-  char passwd[WIFISETUP_BUFFER_SIZE] = { 0 };
+  static char ssid[WIFISETUP_BUFFER_SIZE] = { 0 };
+  static char passwd[WIFISETUP_BUFFER_SIZE] = { 0 };
   this->readWiFiData(ssid, passwd);
 
   DPRINTS("Connecting to ");
@@ -109,13 +114,14 @@ int WiFiSetup::tryConnectingWiFi() {
   DPRINTLN("");
   DPRINTLN("WiFI connected");
   DPRINTS("IP address: ");
-  // DPRINTLN(WiFi.localIP());
+  char *ip = ip2CharArray(WiFi.localIP());
+  DPRINTLN(ip);
 
   return 0;
 }
 
 int WiFiSetup::serveWeb() {
-  this->server.handleClient();
+  this->server->handleClient();
 
   return 0;
 }
@@ -161,3 +167,30 @@ void WiFiSetup::readWiFiData(char *ssid, char *passwd) {
   EEPROM.end();
 }
 
+bool WiFiSetup::autoSetup() {
+  if (this->needSetup()) {
+    this->prepareServing();
+    DPRINTLN("Serving...");
+    return true;
+  }
+
+  this->tryConnectingWiFi();
+  return false;
+}
+
+bool WiFiSetup::autoLoop() {
+  if (this->needSetup()) {
+    delay(400);
+    this->serveWeb();
+    if (this->needRestart()) {
+      DPRINTLN("Restart in 3 sec.");
+      delay(3000);
+      DPRINTLN("Restart now");
+      ESP.restart();
+    }
+
+    return true;
+  }
+
+  return false;
+}

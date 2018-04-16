@@ -41,7 +41,7 @@ class WiFiSetup {
   bool isNeedSetupCached;
   bool needRestartCached;
   int ledPin;
-  ESP8266WebServer server;
+  std::unique_ptr<ESP8266WebServer> server;
 
   void writeWiFiData(const char *ssid, const char *passwd);
   void readWiFiData(char *ssid, char *passwd);
@@ -57,6 +57,10 @@ class WiFiSetup {
   int prepareServing();
   int tryConnectingWiFi();
   int serveWeb();
+  // if true, return;
+  bool autoSetup();
+  // if true, return
+  bool autoLoop();
 };
 
 
